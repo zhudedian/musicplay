@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/nav_time"
+        android:icon="@drawable/ic_cached_black_48dp"
+        android:title="过滤时长"/>
+</menu>
