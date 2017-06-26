@@ -50,7 +50,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
     private MediaPlayer mediaPlayer;
     private MusicPlayReceiver musicPlayReceiver;
     private List<Music> musicList = new ArrayList<>();
-    private List<Music> dateList = new ArrayList<>();
+    private List<Music> dataList = new ArrayList<>();
     private Music music;
     private int position;
     private SeekBar seekBar;
@@ -73,8 +73,8 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         Intent intent = getIntent();
         position = intent.getIntExtra("position",0);
-        dateList = (List<Music>) intent.getSerializableExtra("dateList");
-        music = dateList.get(position);
+        dataList = (List<Music>) intent.getSerializableExtra("dataList");
+        music = (Music)intent.getSerializableExtra("music");
         musicPlay = (MusicPlay)intent.getSerializableExtra("musicplay");
         //Log.i("MusicPlayActivity",dateList+"dateList");
         setContentView(R.layout.activity_music_play);
@@ -358,7 +358,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 //                if (!mediaPlayer.isPlaying()){
 //                    mediaPlayer.start();
 //                }
-                Utility.queryLocalMusic(MusicPlayActivity.this);
+
 //                cover.setImageBitmap(Utility.getArtwork(this,music.getMusic_id(),test,false));
 //                Log.i(TAG,"test="+test);
 //                test++;
@@ -383,11 +383,13 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                 break;
             case R.id.arrow_or_pause:
                 if (mediaPlayer.isPlaying()){
+                    musicPlay.pausePlay();
                     musicPlay.notificationManager.cancel(1);
                 }else {
-                    musicPlay.notificationManager.notify(1,musicPlay.notification);
+                    musicPlay.pausePlay();
+                    musicPlay.reNewNotification();
                 }
-                musicPlay.pausePlay();
+
                 break;
             default:
                 break;

@@ -20,15 +20,22 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.ider.musicplay.popu.PopuUtils;
+import com.ider.musicplay.popu.PopupDialog;
+import com.ider.musicplay.popu.Popus;
 import com.ider.musicplay.service.MusicPlayService;
 import com.ider.musicplay.util.BaseActivity;
+import com.ider.musicplay.util.FindMusic;
+import com.ider.musicplay.util.LastPlayInfo;
 import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
 import com.ider.musicplay.util.Utility;
@@ -40,15 +47,15 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
 
 
+public class MainActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
 
-public class MainActivity extends BaseActivity implements View.OnClickListener{
 
-    private List<Music> musicList = new ArrayList<>();
-    private List<Music> dateList = new ArrayList<>();
-    private List<Bitmap> bitmapList = new ArrayList<>();
-    private TextView notice, musicnum;
+    private Context context;
+    private List<Music> dataList = new ArrayList<>();
+    private TextView notice, musicnum ,nowTime;
     private ImageView fresh;
     private ProgressBar progressBar;
     private MusicAdapter adapter;
@@ -56,11 +63,13 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
     private boolean isFreshing=false;
+    private int lastPosition;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        context = MainActivity.this;
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         drawerLayout = (DrawerLayout) findViewById(R.id.activity_music);
@@ -77,7 +86,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
         fresh.setOnClickListener(this);
         notice.setOnClickListener(this);
         listView = (ListView) findViewById(R.id.music_list);
-        adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item,dateList);
+        adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item,dataList);
         listView.setAdapter(adapter);
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
@@ -92,7 +101,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
             public boolean onNavigationItemSelected(MenuItem item){
                 switch (item.getItemId()){
                     case R.id.nav_time:
-
+                        showDropDownPopupDialog();
                         break;
                 }
                 return true;
@@ -101,11 +110,11 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
             public void onItemClick(AdapterView<?> parent, View view,int position,long id){
-                Music music = dateList.get(position);
+                Music music = dataList.get(position);
                 String path = music.getMusicPath();
                 if (new File(path).exists()){
                     Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
-                    startIntent.putExtra("dateList", (Serializable) dateList);
+                    startIntent.putExtra("dataList", (Serializable) dataList);
                     startIntent.putExtra("music",music);
                     startIntent.putExtra("notify",false);
                     startIntent.putExtra("position",position);
@@ -122,27 +131,13 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
 
     }
     private void initList(){
-        SharedPreferences preferences = getSharedPreferences("music_prefers", Context.MODE_PRIVATE);
-        boolean firstIn = preferences.getBoolean("first_in", true);
+        SharedPreferences preferences = getSharedPreferences("music_play", Context.MODE_PRIVATE);
+        boolean isDataSave = preferences.getBoolean("data_save", false);
 //        Log.i("musicplay",firstIn+"");
-        if (!firstIn&&!Utility.isScaning) {
-            musicList = DataSupport.findAll(Music.class);
-        }else {
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.putBoolean("first_in", false);
-            editor.apply();
+        if (isDataSave&&!FindMusic.isScaning) {
+            FindMusic.findFromDataSupport(context,dataList);
         }
-        if (musicList.size()>0){
-            dateList.clear();
-            for (Music music :musicList){
-                if (new File(music.getMusicPath()).exists()){
-//                            Bitmap bitmap = Utility.createAlbumArt(MainActivity.this,music.getMusicPath(),true);
-//                            bitmapList.add(bitmap);
-                    dateList.add(music);
-                }else {
-                    DataSupport.deleteAll(Music.class,"musicPath = ?",music.getMusicPath());
-                }
-            }
+        if (dataList.size()>0){
             initView();
         }else {
             queryMusic();
@@ -151,7 +146,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
     private void queryMusic(){
         progressBar.setVisibility(View.VISIBLE);
         listView.setVisibility(View.GONE);
-        Utility.queryLocalMusic(MainActivity.this);
+        FindMusic.findFromMedia(MainActivity.this);
         new Thread(){
             public void run() {
                 boolean isNotEnd = true;
@@ -161,7 +156,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    if (!Utility.isScaning) {
+                    if (!FindMusic.isScaning) {
                         isNotEnd =false;
                         mHandler.sendEmptyMessage(1);
                     }
@@ -170,14 +165,14 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
         }.start();
     }
     private void initView(){
-        if (dateList.size()>0){
+        if (dataList.size()>0){
             notice.setVisibility(View.GONE);
 
         }else {
             notice.setVisibility(View.VISIBLE);
         }
-        musicnum.setText(dateList.size()+"首");
-        Log.i("musicplay","dateList.size()="+dateList.size());
+        musicnum.setText(dataList.size()+"首");
+        Log.i("musicplay","dateList.size()="+dataList.size());
         adapter.notifyDataSetChanged();
     }
 
@@ -192,7 +187,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
                     isFreshing = true;
                     queryMusic();
                 }
-
+//                showDropDownPopupDialog();
                 break;
             default:
                 break;
@@ -220,6 +215,71 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
 
         }
     };
+    private void showDropDownPopupDialog() {
+        SharedPreferences preferences = getSharedPreferences("music_play", Context.MODE_PRIVATE);
+        int findTime = preferences.getInt("find_time", 60);
+        View view = View.inflate(context, R.layout.setting_time, null);
+        nowTime = (TextView) view.findViewById(R.id.now_time);
+        SeekBar seekBar = (SeekBar) view.findViewById(R.id.time_select);
+        seekBar.setOnSeekBarChangeListener(this);
+        seekBar.setMax(120);
+        seekBar.setProgress(findTime);
+        Popus popup = new Popus();
+
+// 这里是获得屏幕宽度使弹窗水平居中
+
+        int xPos = 60;
+
+        popup .setxPos( xPos );
+
+        popup .setyPos(0);
+
+        popup .setvWidth(700);
+
+        popup .setvHeight(300);
+
+        popup .setClickable( true );
+
+        popup .setAnimFadeInOut(R.style.PopupWindowAnimation );
+
+        popup.setCustomView(view);
+        popup .setContentView(R.layout.activity_main );
+
+        PopupDialog popupDialog = PopuUtils.createPopupDialog (context, popup );
+
+        popupDialog .showAsDropDown(fresh, popup.getxPos(), popup.getyPos());
+
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress,
+                                  boolean fromUser) {
+//        Log.i("MusicPlayActivity",progress+"");
+        lastPosition = progress;
+        nowTime.setText(progress+"秒");
+        seekBar.setProgress(progress);
+//        mtvstate.setText("开始拖动");
+//        mtvdata.setText("当前进度数值是："+progress);
+
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+//        Log.i("MusicPlayActivity","onStartTrackingTouch");
+
+//        mtvstate.setText("开始拖动");
+
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+        // TODO Auto-generated method stub
+        SharedPreferences preferences = context.getSharedPreferences("music_play", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt("find_time", lastPosition);
+        editor.apply();
+
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -259,7 +319,6 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
         switch (requestCode){
             case 1:
                 if (grantResults.length>0&& grantResults[0] ==PackageManager.PERMISSION_GRANTED){
-                    Utility.queryLocalMusic(MainActivity.this);
                     initList();
                 }else {
                     Toast.makeText(this,"You denied the permission",Toast.LENGTH_SHORT).show();
@@ -268,10 +327,17 @@ public class MainActivity extends BaseActivity implements View.OnClickListener{
             default:
         }
     }
+
+    @Override
+    public void onBackPressed(){
+        Intent intent = new Intent(MusicPlay.CLOSEAPP);
+        sendBroadcast(intent);
+        finish();
+    }
+
     @Override
     protected void onDestroy(){
         super.onDestroy();
-        Intent intent = new Intent(MusicPlay.CLOSEAPP);
-        sendBroadcast(intent);
+
     }
 }

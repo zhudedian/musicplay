@@ -14,18 +14,14 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.widget.RemoteViews;
 
-import com.ider.musicplay.MusicPlayActivity;
 import com.ider.musicplay.R;
 import com.ider.musicplay.service.MusicPlayService;
 
 import java.io.IOException;
-import java.io.PushbackInputStream;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Random;
 
-import static com.ider.musicplay.service.MusicPlayService.dateList;
-import static com.ider.musicplay.service.MusicPlayService.myAudFocListener;
 
 /**
  * Created by Eric on 2017/6/20.
@@ -45,13 +41,13 @@ public class MusicPlay implements Serializable {
 
     public static RemoteViews remoteViews;
 
-    public static Context context;
+    private static Context context;
 
     public static LocalBroadcastManager localBroadcastManager;
 
     public static SharedPreferences preferences;
 
-    public static List<Music> dateList;
+    public static List<Music> dataList;
 
     public static int position;
 
@@ -77,7 +73,7 @@ public class MusicPlay implements Serializable {
 
     public MusicPlay(Context context,List<Music> musicList, int position){
         this.context = context;
-        this.dateList = musicList;
+        this.dataList = musicList;
         this.position = position;
         mediaPlayer = new MediaPlayer();
         localBroadcastManager = LocalBroadcastManager.getInstance(context);
@@ -88,7 +84,8 @@ public class MusicPlay implements Serializable {
 
     public static void initMediaPlayer(){
         try{
-//            Log.i("MusicPlay","position："+position);
+            mediaPlayer.reset();
+            Log.i("MusicPlay","position："+position);
             String path = music.getMusicPath();
             mediaPlayer.setDataSource(path);
             mediaPlayer.prepare();
@@ -115,13 +112,13 @@ public class MusicPlay implements Serializable {
         String path;
         if (PLAY_MODE.equals(RANDOM_PLAY)) {
             Random random = new Random();
-            int max = dateList.size();
-            music = dateList.get(position=random.nextInt(max));
+            int max = dataList.size();
+            music = dataList.get(position=random.nextInt(max));
             path = music.getMusicPath();
         }else {
-            music = dateList.get(++position);
-            if (dateList==null){
-                music = dateList.get(position=0);
+            music = dataList.get(++position);
+            if (dataList==null){
+                music = dataList.get(position=0);
             }
             path =music.getMusicPath();
         }

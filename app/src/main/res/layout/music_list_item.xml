@@ -9,6 +9,7 @@
         android:id="@+id/music_image"
         android:layout_width="40dp"
         android:layout_height="40dp"
+        android:visibility="gone"
         android:layout_gravity="center_vertical"/>
     <LinearLayout
         android:orientation="vertical"

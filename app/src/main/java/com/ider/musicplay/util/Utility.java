@@ -25,6 +25,8 @@ import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 
+import static com.ider.musicplay.util.FindMusic.scanMusic;
+
 /**
  * Created by Eric on 2017/6/13.
  */
@@ -34,100 +36,33 @@ public class Utility {
     private static final Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
     private static final BitmapFactory.Options sBitmapOptions = new BitmapFactory.Options();
     private static Bitmap mCachedBit = null;
-    public static boolean isScan=true,isScaning=false;
-    public static boolean queryLocalMusic(final Context context){
-        Log.i(TAG,isScan+"");
-        new Thread(){
-            public void run() {
-//                while (isScan) {
-//                    try {
-//                        sleep(3000);
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-                    if (!isScaning) {
-                        isScaning = true;
-                        scanMusic(context);
-                    }
-//                }
-            }
-        }.start();
 
-        return true;
+
+    public static void getMusicFromInfo(LastPlayInfo lastPlayInfo,Music music){
+        music.setMusicName(lastPlayInfo.getMusicName());
+        music.setMusic_id(lastPlayInfo.getMusic_id());
+        music.setMusicAlbum(lastPlayInfo.getMusicAlbum());
+        music.setMusicAlbum_id(lastPlayInfo.getMusicAlbum_id());
+        music.setMusicArtist(lastPlayInfo.getMusicArtist());
+        music.setMusicDuration(lastPlayInfo.getMusicDuration());
+        music.setMusicSize(lastPlayInfo.getMusicSize());
+        music.setMusicPath(lastPlayInfo.getMusicPath());
+        music.setMd5(lastPlayInfo.getMd5());
     }
-    public static boolean scanMusic(Context context){
-        ContentResolver resolver = context.getContentResolver();
-        Cursor c = resolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null,null, null,null);
-        if (c!=null) {
-//            isScan =false;
-//            new Thread(){
-//                public void run() {
-//                        try {
-//                            sleep(2000);
-//                        } catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-//                        isScan = true;
-//
-//                }
-//            }.start();
-            c.moveToFirst();
-             do{
-                Music music = new Music();
-                //名字
-                String name = c.getString(c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE));
-                long album_id = c.getLong(c.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID));
-                long id = c.getLong(c.getColumnIndex(MediaStore.Audio.Media._ID));
-                music.setMusic_id(id);
-                music.setMusicAlbum_id(album_id);
-                music.setMusicName(name);
-                //专辑名
-                String album = c.getString(c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM));
-                music.setMusicAlbum(album);
-                //歌手名
-                String artist = c.getString(c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST));
-                music.setMusicArtist(artist.replaceAll(" ",""));
 
-                //URI 歌曲文件存放路径
-                String path = c.getString(c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA));
-                music.setMusicPath(path);
-                Log.i(TAG,path);
-                String md5 = getFileMD5(new File(path));
-                music.setMd5(md5);
-                //歌曲文件播放时间长度
-                int duration = c.getInt(c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION));
-                music.setMusicDuration(duration);
-                //音乐文件大小
-                int size = c.getInt(c.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE));
-                music.setMusicSize(size);
-                DataSupport.deleteAll(Music.class,"musicPath = ?",path);
-                music.save();
-            }while (c.moveToNext());
-        }else {
-            isScaning = false;
-            return false;
-        }
-        c.close();
-//        List<Music> musicList = DataSupport.findAll(Music.class);
-//        for (int i = 0;i<musicList.size();i++){
-//            Music music = musicList.get(i);
-//            if(music.getBitmap()==null){
-//                List<Music> musics = DataSupport.where("musicArtist = ?", music.getMusicArtist()).find(Music.class);
-//                for (int j = 0; j<musics.size();j++){
-//                    Music music1 = musics.get(i);
-//                    Bitmap bitmap = createAlbumArt(music1.getMusicPath());
-//                    if (bitmap!=null){
-//                        music.setBitmap(bitmap);
-//                        DataSupport.deleteAll("musicPath = ?", music.getMusicPath());
-//                        music.save();
-//                    }
-//                }
-//            }
-//        }
-
-        isScaning = false;
-        return true;
+    public static void saveMusicToInfo(Music music, LastPlayInfo lastPlayInfo){
+        lastPlayInfo.setMusicName(music.getMusicName());
+        Log.i(TAG,lastPlayInfo.getMusicName());
+        lastPlayInfo.setMusic_id(music.getMusic_id());
+        lastPlayInfo.setMusicAlbum(music.getMusicAlbum());
+        lastPlayInfo.setMusicAlbum_id(music.getMusicAlbum_id());
+        lastPlayInfo.setMusicArtist(music.getMusicArtist());
+        lastPlayInfo.setMusicDuration(music.getMusicDuration());
+        lastPlayInfo.setMusicSize(music.getMusicSize());
+        lastPlayInfo.setMusicPath(music.getMusicPath());
+        lastPlayInfo.setMd5(music.getMd5());
     }
+
     public static Bitmap getArtwork(Context context, long song_id, long album_id, boolean allowdefault) {
         if (album_id < 0) {
             // This is something that is not in the database, so get the album art directly
