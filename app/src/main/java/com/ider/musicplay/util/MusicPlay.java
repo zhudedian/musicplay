@@ -71,15 +71,14 @@ public class MusicPlay implements Serializable {
 
     public static final String RANDOM_PLAY = "random_play";
 
-    public MusicPlay(Context context,List<Music> musicList, int position){
-        this.context = context;
-        this.dataList = musicList;
-        this.position = position;
+
+
+    public static void initialize(){
+        context = MyApplication.getContext();
         mediaPlayer = new MediaPlayer();
         localBroadcastManager = LocalBroadcastManager.getInstance(context);
         preferences = context.getSharedPreferences("music_play", Context.MODE_PRIVATE);
         PLAY_MODE = preferences.getString("play_mode", "random_play");
-        music = musicList.get(position);
     }
 
     public static void initMediaPlayer(){

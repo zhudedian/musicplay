@@ -9,7 +9,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -42,17 +41,14 @@ import java.util.concurrent.TimeUnit;
 import de.hdodenhof.circleimageview.CircleImageView;
 
 import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
+import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
+import static com.ider.musicplay.util.MusicPlay.position;
 
 public class MusicPlayActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
 
     private String TAG = "MusicPlayActivity";
-    private MusicPlay musicPlay;
-    private MediaPlayer mediaPlayer;
     private MusicPlayReceiver musicPlayReceiver;
-    private List<Music> musicList = new ArrayList<>();
-    private List<Music> dataList = new ArrayList<>();
-    private Music music;
-    private int position;
+
     private SeekBar seekBar;
     private ColorSeekBar colorSeekBar;
     private boolean shortPress = false;
@@ -72,10 +68,6 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Intent intent = getIntent();
-        position = intent.getIntExtra("position",0);
-        dataList = (List<Music>) intent.getSerializableExtra("dataList");
-        music = (Music)intent.getSerializableExtra("music");
-        musicPlay = (MusicPlay)intent.getSerializableExtra("musicplay");
         //Log.i("MusicPlayActivity",dateList+"dateList");
         setContentView(R.layout.activity_music_play);
         animation= AnimationUtils.loadAnimation(MusicPlayActivity.this,R.anim.image_rotate);
@@ -102,14 +94,13 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         arrow.setOnClickListener(this);
         next.setOnClickListener(this);
         IntentFilter filter = new IntentFilter();
-        filter.addAction(musicPlay.NEXTSONG);
+        filter.addAction(MusicPlay.NEXTSONG);
         filter.addAction(PAUSE_OR_ARROW);
         filter.addAction(MusicPlay.NEXTSONG_NOTIFY);
         filter.addAction(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
         filter.addAction(MusicPlay.CANCEL_PLAY);
         registerReceiver(myReceiver, filter);
         if (savedInstanceState != null){
-            musicPlay = (MusicPlay) savedInstanceState.getSerializable("music_play");
             initView();
         }else {
             initMediaPlayer();
@@ -120,7 +111,6 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
     @Override
     protected void onSaveInstanceState(Bundle outState){
         super.onSaveInstanceState(outState);
-        outState.putSerializable("music_play",musicPlay);
     }
 
     private void registerReceiver()
@@ -177,15 +167,14 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         try{
             arrow.setImageResource(R.drawable.ic_pause_white_48dp);
             isSetProgress=false;
-//            musicPlay.initMediaPlayer();
-            mediaPlayer = musicPlay.mediaPlayer;
+//            MusicPlay.initMediaPlayer();
             seekBar.setMax(mediaPlayer.getDuration());
-            cover.setImageBitmap(Utility.createAlbumArt(this,music.getMusicPath(),false));
-            musicDuration.setText(Utility.formatTime(music.getMusicDuration()));
-            musicName.setText(music.getMusicName());
-            Log.i("musicplay","musicname:"+music.getMusicName()+"musicid:"+music.getMusic_id()+"musicalbum_id:"+music.getMusicAlbum_id());
+            cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+            musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
+            musicName.setText(MusicPlay.music.getMusicName());
+            Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
 
-            Log.i("musicplay","position:"+position);
+            Log.i("musicplay","position:"+MusicPlay.position);
             //后台线程发送消息进行更新进度条
             isSetProgress = true;
             new Thread(){
@@ -207,18 +196,16 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         cover.startAnimation(animation);
     }
     private void nextSong(){
-        musicPlay.nextSong();
+        MusicPlay.nextSong();
         arrow.setImageResource(R.drawable.ic_pause_white_48dp);
         isSetProgress=false;
-        music = musicPlay.music;
-        mediaPlayer = musicPlay.mediaPlayer;
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(this,music.getMusicPath(),false));
-        musicDuration.setText(Utility.formatTime(music.getMusicDuration()));
-        musicName.setText(music.getMusicName());
-        Log.i("musicplay","musicname:"+music.getMusicName()+"musicid:"+music.getMusic_id()+"musicalbum_id:"+music.getMusicAlbum_id());
+        cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+        musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
+        musicName.setText(MusicPlay.music.getMusicName());
+        Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
 
-        Log.i("musicplay",position+"");
+        Log.i("musicplay",MusicPlay.position+"");
         //后台线程发送消息进行更新进度条
         isSetProgress = true;
         new Thread(){
@@ -238,12 +225,10 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
     }
 
     private void initView(){
-        music = musicPlay.music;
-        mediaPlayer = musicPlay.mediaPlayer;
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(this,music.getMusicPath(),false));
-        musicDuration.setText(Utility.formatTime(music.getMusicDuration()));
-        musicName.setText(music.getMusicName());
+        cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+        musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
+        musicName.setText(MusicPlay.music.getMusicName());
         if (mediaPlayer.isPlaying()){
             cover.startAnimation(animation);
             arrow.setImageResource(R.drawable.ic_pause_white_48dp);
@@ -258,7 +243,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(MusicPlay.CANCEL_PLAY)){
-                musicPlay.notificationManager.cancel(1);
+                MusicPlay.notificationManager.cancel(1);
                 Intent stopIntent = new Intent(MusicPlayActivity.this,MusicPlayService.class);
                 stopService(stopIntent);
                 if (mediaPlayer != null && mediaPlayer.isPlaying()) {
@@ -383,11 +368,11 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                 break;
             case R.id.arrow_or_pause:
                 if (mediaPlayer.isPlaying()){
-                    musicPlay.pausePlay();
-                    musicPlay.notificationManager.cancel(1);
+                    MusicPlay.pausePlay();
+                    MusicPlay.notificationManager.cancel(1);
                 }else {
-                    musicPlay.pausePlay();
-                    musicPlay.reNewNotification();
+                    MusicPlay.pausePlay();
+                    MusicPlay.reNewNotification();
                 }
 
                 break;

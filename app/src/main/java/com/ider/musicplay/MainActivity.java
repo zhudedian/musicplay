@@ -47,12 +47,15 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static android.icu.lang.UCharacter.GraphemeClusterBreak.T;
+import static android.os.Build.VERSION_CODES.M;
 import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
 
 
 public class MainActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
 
 
+    private String TAG = "MainActivity";
     private Context context;
     private List<Music> dataList = new ArrayList<>();
     private TextView notice, musicnum ,nowTime;
@@ -114,10 +117,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                 String path = music.getMusicPath();
                 if (new File(path).exists()){
                     Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
-                    startIntent.putExtra("dataList", (Serializable) dataList);
-                    startIntent.putExtra("music",music);
-                    startIntent.putExtra("notify",false);
-                    startIntent.putExtra("position",position);
+                    MusicPlay.music = music;
+                    MusicPlay.dataList = dataList;
+                    MusicPlay.position = position;
                     startService(startIntent);
                 }else {
                     Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
@@ -215,6 +217,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
 
         }
     };
+
+
+
     private void showDropDownPopupDialog() {
         SharedPreferences preferences = getSharedPreferences("music_play", Context.MODE_PRIVATE);
         int findTime = preferences.getInt("find_time", 60);
@@ -329,10 +334,20 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     }
 
     @Override
+    public void onResume(){
+        Log.i(TAG,"onResume()");
+        super.onResume();
+    }
+
+    @Override
     public void onBackPressed(){
+
+        Log.i(TAG,"moveTaskToBack(false);");
+
+
         Intent intent = new Intent(MusicPlay.CLOSEAPP);
         sendBroadcast(intent);
-        finish();
+        moveTaskToBack(false);
     }
 
     @Override

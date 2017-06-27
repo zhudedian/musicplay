@@ -22,15 +22,20 @@ import org.litepal.crud.DataSupport;
 import java.io.Serializable;
 import java.util.List;
 
+import static android.os.Build.VERSION_CODES.M;
+import static com.ider.musicplay.util.MusicPlay.dataList;
 import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
+import static com.ider.musicplay.util.MusicPlay.music;
+import static com.ider.musicplay.util.MusicPlay.position;
 
 public class MusicPlayService extends Service {
-    private MusicPlay musicPlay;
-    private static List<Music> dataList;
+
+    private String TAG = "MusicPlayService";
+    private LastPlayInfo lastPlayInfo;
     public static AudioManager audioManager;
+    private Music music;
     public static MyOnAudioFocusChangeListener myAudFocListener;
-    private Music music = new Music();
-    private int position;
+
     public MusicPlayService() {
     }
 
@@ -44,6 +49,7 @@ public class MusicPlayService extends Service {
     @Override
     public void onCreate(){
         super.onCreate();
+        MusicPlay.initialize();
         audioManager = (AudioManager) getApplicationContext().getSystemService(
                 Context.AUDIO_SERVICE);
         myAudFocListener = new MyOnAudioFocusChangeListener();
@@ -54,8 +60,15 @@ public class MusicPlayService extends Service {
     }
     @Override
     public int onStartCommand(Intent intent,int flags, int startId){
-        LastPlayInfo lastPlayInfo = DataSupport.findLast(LastPlayInfo.class);
-        Utility.getMusicFromInfo(lastPlayInfo,music);
+
+        if (music==null){
+            lastPlayInfo = DataSupport.findLast(LastPlayInfo.class);
+            if (lastPlayInfo!= null) {
+                music = new Music();
+                Utility.getMusicFromInfo(lastPlayInfo, music);
+            }
+        }
+        Log.i(TAG,music.getMusicName());
 //        Log.i("MusicPlayService1",((Music)intent.getSerializableExtra("music")).getMusicPath());
         if (isTopActivity("MusicPlayActivity")){
             return super.onStartCommand(intent,flags,startId);
@@ -64,38 +77,32 @@ public class MusicPlayService extends Service {
             startMusicPlayActivity();
             return super.onStartCommand(intent,flags,startId);
         }
-        if (intent!=null&&music!=null&&!intent.getSerializableExtra("music").equals(music)){
-            dataList = (List<Music>) intent.getSerializableExtra("dataList");
-            position = intent.getIntExtra("position", 0);
-            music = dataList.get(position);
-            musicPlay = new MusicPlay(this, dataList, position);
 
-            musicPlay.initMediaPlayer();
-            musicPlay.sendNotification(this);
+//        Log.i(TAG,intent.getSerializableExtra("music").toString());
+        if (intent!=null&&music!=null&&!music.equals(MusicPlay.music)){
+            Log.i(TAG,"1");
+            music = MusicPlay.music;
+            MusicPlay.initMediaPlayer();
+            MusicPlay.sendNotification(this);
             startMusicPlayActivity();
-        }else if (intent!=null&&music!=null&&intent.getSerializableExtra("music").equals(music)&&musicPlay==null){
-            dataList = (List<Music>) intent.getSerializableExtra("dataList");
-            position = intent.getIntExtra("position", 0);
-            music = dataList.get(position);
-            musicPlay = new MusicPlay(this, dataList, position);
-            musicPlay.initMediaPlayer();
-            musicPlay.mediaPlayer.seekTo(lastPlayInfo.getPlayPosition());
-            musicPlay.sendNotification(this);
+        }else if (intent!=null&&music!=null&&music.equals(MusicPlay.music)&&!MusicPlay.mediaPlayer.isPlaying()){
+            Log.i(TAG,"2");
+            MusicPlay.initMediaPlayer();
+            MusicPlay.mediaPlayer.seekTo(lastPlayInfo.getPlayPosition());
+            MusicPlay.sendNotification(this);
             startMusicPlayActivity();
-        }else if (intent!=null&&music==null){
-            dataList = (List<Music>) intent.getSerializableExtra("dataList");
-            position = intent.getIntExtra("position", 0);
-            music = dataList.get(position);
-            if (musicPlay==null) {
-                musicPlay = new MusicPlay(this, dataList, position);
-            }
-            musicPlay.initMediaPlayer();
-            musicPlay.sendNotification(this);
+        }else if (intent!=null&&MusicPlay.music==null){
+            Log.i(TAG,"3");
+            MusicPlay.dataList = (List<Music>) intent.getSerializableExtra("dataList");
+            MusicPlay.position = intent.getIntExtra("position", 0);
+            MusicPlay.music = dataList.get(MusicPlay.position);
+            MusicPlay.initMediaPlayer();
+            MusicPlay.sendNotification(this);
             startMusicPlayActivity();
         }
 //        Log.i("MusicPlayService","position:"+position);
 //        Log.i("MusicPlayService",music.getMusicPath());
-
+        startMusicPlayActivity();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(MusicPlay.NEXTSONG);
@@ -110,10 +117,6 @@ public class MusicPlayService extends Service {
 
     private void startMusicPlayActivity(){
         Intent startIntent = new Intent(this, MusicPlayActivity.class);
-        startIntent.putExtra("dataList", (Serializable) dataList);
-        startIntent.putExtra("position",position);
-        startIntent.putExtra("music",music);
-        startIntent.putExtra("musicplay",musicPlay);
         startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(startIntent);
     }
@@ -127,15 +130,15 @@ public class MusicPlayService extends Service {
     @Override
     public void onDestroy(){
         LastPlayInfo lastPlayInfo = new LastPlayInfo();
-        Utility.saveMusicToInfo(music,lastPlayInfo);
-        lastPlayInfo.setPlayMode(musicPlay.PLAY_MODE);
-        lastPlayInfo.setPlayPosition(musicPlay.mediaPlayer.getCurrentPosition());
+        Utility.saveMusicToInfo(MusicPlay.music,lastPlayInfo);
+        lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
+        lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
         lastPlayInfo.save();
-        musicPlay.notificationManager.cancel(1);
-        if (musicPlay.mediaPlayer != null && musicPlay.mediaPlayer.isPlaying()) {
-            musicPlay.mediaPlayer.stop();
-            musicPlay.mediaPlayer.release();
-            musicPlay.mediaPlayer = null;
+        MusicPlay.notificationManager.cancel(1);
+        if (MusicPlay.mediaPlayer != null && MusicPlay.mediaPlayer.isPlaying()) {
+            MusicPlay.mediaPlayer.stop();
+            MusicPlay.mediaPlayer.release();
+            MusicPlay.mediaPlayer = null;
         }
         unregisterReceiver(myReceiver);
         super.onDestroy();
@@ -146,7 +149,7 @@ public class MusicPlayService extends Service {
             Log.i("MusicPlayService",focusChange+"");
             switch (focusChange) {
                 case AudioManager.AUDIOFOCUS_GAIN://你已经得到了音频焦点。
-                    if (!musicPlay.mediaPlayer.isPlaying()){
+                    if (!MusicPlay.mediaPlayer.isPlaying()){
                         Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
                         sendBroadcast(intent);
                     }
@@ -183,30 +186,32 @@ public class MusicPlayService extends Service {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(MusicPlay.PAUSE_OR_ARROW_NOTIFY)){
-                musicPlay.pausePlay();
-                musicPlay.reNewNotification();
+                MusicPlay.pausePlay();
+                MusicPlay.reNewNotification();
             }else if (action.equals(MusicPlay.NEXTSONG_NOTIFY)){
-                musicPlay.nextSong();
+                MusicPlay.nextSong();
             }else if (action.equals(MusicPlay.OPEN_MUSIC_PLAY)){
                 Intent startIntent = new Intent(MusicPlayService.this, MusicPlayActivity.class);
                 startIntent.putExtra("dateList", (Serializable) dataList);
                 startIntent.putExtra("position",position);
-                startIntent.putExtra("musicplay",musicPlay);
+
                 startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(startIntent);
             }else if (action.equals(MusicPlay.CANCEL_PLAY)){
-                if (musicPlay.mediaPlayer != null && musicPlay.mediaPlayer.isPlaying()) {
-                    musicPlay.mediaPlayer.pause();
+                if (MusicPlay.mediaPlayer != null && MusicPlay.mediaPlayer.isPlaying()) {
+                    MusicPlay.mediaPlayer.pause();
                 }
                 audioManager.abandonAudioFocus(myAudFocListener);
                 stopSelf();
             }else if (action.equals(MusicPlay.CLOSEAPP)){
-                if (musicPlay.mediaPlayer!=null&&!musicPlay.mediaPlayer.isPlaying()) {
-                    audioManager.abandonAudioFocus(myAudFocListener);
-                    stopSelf();
+                if (MusicPlay.mediaPlayer!=null&&!MusicPlay.mediaPlayer.isPlaying()) {
+//                    audioManager.abandonAudioFocus(myAudFocListener);
+                    Intent sendIntent = new Intent(MusicPlay.CANCEL_PLAY);
+                    sendBroadcast(sendIntent);
+//                    stopSelf();
                 }
             }else {
-                musicPlay.reNewNotification();
+                MusicPlay.reNewNotification();
             }
         }
     };
