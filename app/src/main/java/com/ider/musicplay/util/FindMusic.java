@@ -28,23 +28,23 @@ import java.util.Locale;
  */
 
 public class FindMusic implements Comparator<Music>{
-
+    private static Context context = MyApplication.getContext();
     private static List<Music> musicList = new ArrayList<>();
     private Collator collator = Collator.getInstance(Locale.CHINA);
     private static String TAG = "FindMusic";
     public static boolean isScaning=false;
-    public static void findFromMedia(final Context context){
+    public static void findFromMedia(){
         new Thread(){
             public void run() {
                 if (!isScaning) {
                     isScaning = true;
-                    scanMusic(context);
+                    scanMusic();
                 }
             }
         }.start();
     }
 
-    public static void findFromDataSupport(Context context,List<Music> dataList){
+    public static void findFromDataSupport(List<Music> dataList){
         SharedPreferences preferences = context.getSharedPreferences("music_play", Context.MODE_PRIVATE);
         int time = preferences.getInt("find_time",60);
         musicList = DataSupport.findAll(Music.class);
@@ -63,7 +63,7 @@ public class FindMusic implements Comparator<Music>{
         Collections.sort(dataList,new FindMusic());
     }
 
-    public static boolean scanMusic(Context context){
+    public static boolean scanMusic(){
         ContentResolver resolver = context.getContentResolver();
         Cursor c = resolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null,null, null,null);
         if (c!=null) {

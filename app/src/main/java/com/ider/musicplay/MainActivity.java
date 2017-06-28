@@ -35,21 +35,12 @@ import com.ider.musicplay.popu.Popus;
 import com.ider.musicplay.service.MusicPlayService;
 import com.ider.musicplay.util.BaseActivity;
 import com.ider.musicplay.util.FindMusic;
-import com.ider.musicplay.util.LastPlayInfo;
-import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
-import com.ider.musicplay.util.Utility;
 
-import org.litepal.crud.DataSupport;
 
 import java.io.File;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 
-import static android.icu.lang.UCharacter.GraphemeClusterBreak.T;
-import static android.os.Build.VERSION_CODES.M;
-import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
+
 
 
 public class MainActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
@@ -57,7 +48,6 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
 
     private String TAG = "MainActivity";
     private Context context;
-    private List<Music> dataList = new ArrayList<>();
     private TextView notice, musicnum ,nowTime;
     private ImageView fresh;
     private ProgressBar progressBar;
@@ -89,7 +79,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         fresh.setOnClickListener(this);
         notice.setOnClickListener(this);
         listView = (ListView) findViewById(R.id.music_list);
-        adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item,dataList);
+        adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item, MusicPlay.dataList);
         listView.setAdapter(adapter);
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
@@ -113,12 +103,10 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
             public void onItemClick(AdapterView<?> parent, View view,int position,long id){
-                Music music = dataList.get(position);
-                String path = music.getMusicPath();
+                MusicPlay.music = MusicPlay.dataList.get(position);
+                String path = MusicPlay.music.getMusicPath();
                 if (new File(path).exists()){
                     Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
-                    MusicPlay.music = music;
-                    MusicPlay.dataList = dataList;
                     MusicPlay.position = position;
                     startService(startIntent);
                 }else {
@@ -137,9 +125,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         boolean isDataSave = preferences.getBoolean("data_save", false);
 //        Log.i("musicplay",firstIn+"");
         if (isDataSave&&!FindMusic.isScaning) {
-            FindMusic.findFromDataSupport(context,dataList);
+            FindMusic.findFromDataSupport(MusicPlay.dataList);
         }
-        if (dataList.size()>0){
+        if (MusicPlay.dataList.size()>0){
             initView();
         }else {
             queryMusic();
@@ -148,7 +136,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     private void queryMusic(){
         progressBar.setVisibility(View.VISIBLE);
         listView.setVisibility(View.GONE);
-        FindMusic.findFromMedia(MainActivity.this);
+        FindMusic.findFromMedia();
         new Thread(){
             public void run() {
                 boolean isNotEnd = true;
@@ -167,14 +155,14 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         }.start();
     }
     private void initView(){
-        if (dataList.size()>0){
+        if (MusicPlay.dataList.size()>0){
             notice.setVisibility(View.GONE);
 
         }else {
             notice.setVisibility(View.VISIBLE);
         }
-        musicnum.setText(dataList.size()+"首");
-        Log.i("musicplay","dateList.size()="+dataList.size());
+        musicnum.setText(MusicPlay.dataList.size()+"首");
+        Log.i("musicplay","dateList.size()="+MusicPlay.dataList.size());
         adapter.notifyDataSetChanged();
     }
 
@@ -283,6 +271,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         SharedPreferences.Editor editor = preferences.edit();
         editor.putInt("find_time", lastPosition);
         editor.apply();
+        FindMusic.findFromDataSupport(MusicPlay.dataList);
+        musicnum.setText(MusicPlay.dataList.size()+"首");
+        adapter.notifyDataSetChanged();
 
     }
 
@@ -341,13 +332,13 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
 
     @Override
     public void onBackPressed(){
-
-        Log.i(TAG,"moveTaskToBack(false);");
-
-
-        Intent intent = new Intent(MusicPlay.CLOSEAPP);
-        sendBroadcast(intent);
-        moveTaskToBack(false);
+        if (MusicPlay.mediaPlayer!=null&&MusicPlay.mediaPlayer.isPlaying()){
+            moveTaskToBack(false);
+        }else {
+            Intent intent = new Intent(MusicPlay.CLOSEAPP);
+            sendBroadcast(intent);
+            finish();
+        }
     }
 
     @Override

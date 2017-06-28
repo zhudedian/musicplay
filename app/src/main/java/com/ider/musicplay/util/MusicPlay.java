@@ -19,6 +19,7 @@ import com.ider.musicplay.service.MusicPlayService;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -47,7 +48,7 @@ public class MusicPlay implements Serializable {
 
     public static SharedPreferences preferences;
 
-    public static List<Music> dataList;
+    public static List<Music> dataList = new ArrayList<>();
 
     public static int position;
 
