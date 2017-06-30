@@ -54,9 +54,13 @@ public class MusicPlay implements Serializable {
 
     public static Music music;
 
+    public static LastPlayInfo lastPlayInfo;
+
     public static final String NEXTSONG = "next_song";
 
     public static final String PAUSE_OR_ARROW_NOTIFY = "pause_or_arrow_notify";
+
+    public static final String PAUSE_OR_ARROW_FOCUS = "pause_or_arrow_focus";
 
     public static final String NEXTSONG_NOTIFY = "next_song_notify";
 
@@ -94,7 +98,7 @@ public class MusicPlay implements Serializable {
             MusicPlayService.audioManager.requestAudioFocus(MusicPlayService.myAudFocListener,
                     AudioManager.STREAM_MUSIC,
                     AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            mediaPlayer.start();
+//            mediaPlayer.start();
             mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                 @Override
                 public void onCompletion(MediaPlayer mp) {
@@ -116,6 +120,7 @@ public class MusicPlay implements Serializable {
             music = dataList.get(position=random.nextInt(max));
             path = music.getMusicPath();
         }else {
+
             music = dataList.get(++position);
             if (dataList==null){
                 music = dataList.get(position=0);
@@ -147,7 +152,7 @@ public class MusicPlay implements Serializable {
     }
 
 
-    public static void sendNotification(Context context) {
+    public static void sendNotification() {
 
         notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -171,8 +176,13 @@ public class MusicPlay implements Serializable {
         /*
          * 对于自定义布局文件中的控件通过RemoteViews类的对象进行事件处理
          */
-        remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_pause_white_24dp);
-        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(context,music.getMusicPath(),true));
+        if (mediaPlayer.isPlaying()){
+            remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_pause_white_24dp);
+        }else {
+            remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_play_arrow_white_24dp);
+        }
+
+        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(music.getMusicPath(),true));
         remoteViews.setTextViewText(R.id.music_name,music.getMusicName());
         remoteViews.setTextViewText(R.id.music_artist,music.getMusicArtist());
         remoteViews.setOnClickPendingIntent(R.id.pause_music, button1PI);
@@ -203,7 +213,7 @@ public class MusicPlay implements Serializable {
         }else {
             remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_play_arrow_white_48dp);
         }
-        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(context,music.getMusicPath(),true));
+        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(music.getMusicPath(),true));
         remoteViews.setTextViewText(R.id.music_name,music.getMusicName());
         remoteViews.setTextViewText(R.id.music_artist,music.getMusicArtist());
         notificationManager.notify(1, notification);

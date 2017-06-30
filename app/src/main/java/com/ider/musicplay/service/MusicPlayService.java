@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.os.IBinder;
 import android.util.Log;
@@ -49,7 +50,6 @@ public class MusicPlayService extends Service {
     @Override
     public void onCreate(){
         super.onCreate();
-        MusicPlay.initialize();
         audioManager = (AudioManager) getApplicationContext().getSystemService(
                 Context.AUDIO_SERVICE);
         myAudFocListener = new MyOnAudioFocusChangeListener();
@@ -61,14 +61,13 @@ public class MusicPlayService extends Service {
     @Override
     public int onStartCommand(Intent intent,int flags, int startId){
 
-        if (music==null){
-            lastPlayInfo = DataSupport.findLast(LastPlayInfo.class);
-            if (lastPlayInfo!= null) {
-                music = new Music();
-                Utility.getMusicFromInfo(lastPlayInfo, music);
-            }
+
+        if (intent!=null&&"only_play".equals(intent.getStringExtra("commend"))){
+            MusicPlay.sendNotification();
+            registerReceiver();
+            return super.onStartCommand(intent,flags,startId);
         }
-        Log.i(TAG,music.getMusicName());
+//        Log.i(TAG,music.getMusicName());
 //        Log.i("MusicPlayService1",((Music)intent.getSerializableExtra("music")).getMusicPath());
         if (isTopActivity("MusicPlayActivity")){
             return super.onStartCommand(intent,flags,startId);
@@ -78,41 +77,22 @@ public class MusicPlayService extends Service {
             return super.onStartCommand(intent,flags,startId);
         }
 
-//        Log.i(TAG,intent.getSerializableExtra("music").toString());
-        if (intent!=null&&music!=null&&!music.equals(MusicPlay.music)){
-            Log.i(TAG,"1");
-            music = MusicPlay.music;
-            MusicPlay.initMediaPlayer();
-            MusicPlay.sendNotification(this);
-            startMusicPlayActivity();
-        }else if (intent!=null&&music!=null&&music.equals(MusicPlay.music)&&!MusicPlay.mediaPlayer.isPlaying()){
-            Log.i(TAG,"2");
-            MusicPlay.initMediaPlayer();
-            MusicPlay.mediaPlayer.seekTo(lastPlayInfo.getPlayPosition());
-            MusicPlay.sendNotification(this);
-            startMusicPlayActivity();
-        }else if (intent!=null&&MusicPlay.music==null){
-            Log.i(TAG,"3");
-            MusicPlay.dataList = (List<Music>) intent.getSerializableExtra("dataList");
-            MusicPlay.position = intent.getIntExtra("position", 0);
-            MusicPlay.music = dataList.get(MusicPlay.position);
-            MusicPlay.initMediaPlayer();
-            MusicPlay.sendNotification(this);
-            startMusicPlayActivity();
-        }
-//        Log.i("MusicPlayService","position:"+position);
-//        Log.i("MusicPlayService",music.getMusicPath());
         startMusicPlayActivity();
-
+        MusicPlay.sendNotification();
+        registerReceiver();
+        return super.onStartCommand(intent,flags,startId);
+    }
+    private void registerReceiver(){
         IntentFilter filter = new IntentFilter();
         filter.addAction(MusicPlay.NEXTSONG);
         filter.addAction(MusicPlay.NEXTSONG_NOTIFY);
         filter.addAction(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+        filter.addAction(MusicPlay.PAUSE_OR_ARROW_FOCUS);
+        filter.addAction(MusicPlay.PAUSE_OR_ARROW);
         filter.addAction(MusicPlay.OPEN_MUSIC_PLAY);
         filter.addAction(MusicPlay.CLOSEAPP);
         filter.addAction(MusicPlay.CANCEL_PLAY);
         registerReceiver(myReceiver, filter);
-        return super.onStartCommand(intent,flags,startId);
     }
 
     private void startMusicPlayActivity(){
@@ -133,7 +113,12 @@ public class MusicPlayService extends Service {
         Utility.saveMusicToInfo(MusicPlay.music,lastPlayInfo);
         lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
         lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
+        DataSupport.deleteAll(LastPlayInfo.class);
         lastPlayInfo.save();
+        SharedPreferences preferences = getSharedPreferences("music_play", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean("have_last_play_info", true);
+        editor.apply();
         MusicPlay.notificationManager.cancel(1);
         if (MusicPlay.mediaPlayer != null && MusicPlay.mediaPlayer.isPlaying()) {
             MusicPlay.mediaPlayer.stop();
@@ -150,7 +135,8 @@ public class MusicPlayService extends Service {
             switch (focusChange) {
                 case AudioManager.AUDIOFOCUS_GAIN://你已经得到了音频焦点。
                     if (!MusicPlay.mediaPlayer.isPlaying()){
-                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+                        MusicPlay.mediaPlayer.start();
+                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_FOCUS);
                         sendBroadcast(intent);
                     }
 //                    Log.i("MusicPlayService","case AudioManager.AUDIOFOCUS_GAIN:");
@@ -158,21 +144,24 @@ public class MusicPlayService extends Service {
                 case AudioManager.AUDIOFOCUS_LOSS://你已经失去了音频焦点很长时间了。你必须停止所有的音频播放。因为你应该不希望长时间等待焦点返回，这将是你尽可能清除你的资源的一个好地方。例如，你应该释放MediaPlayer。
 //                    Log.i("MusicPlayService","case AudioManager.AUDIOFOCUS_LOSS:");
                     if (mediaPlayer.isPlaying()){
-                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+                        MusicPlay.mediaPlayer.pause();
+                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_FOCUS);
                         sendBroadcast(intent);
                     }
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT://你暂时失去了音频焦点，但很快会重新得到焦点。你必须停止所有的音频播放，但是你可以保持你的资源，因为你可能很快会重新获得焦点。
 //                    Log.i("MusicPlayService","case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:");
                     if (mediaPlayer.isPlaying()){
-                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+                        MusicPlay.mediaPlayer.pause();
+                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_FOCUS);
                         sendBroadcast(intent);
                     }
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK://你暂时失去了音频焦点，但你可以小声地继续播放音频（低音量）而不是完全扼杀音频。
 //                    Log.i("MusicPlayService","case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:");
                     if (mediaPlayer.isPlaying()){
-                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+                        MusicPlay.mediaPlayer.pause();
+                        Intent intent = new Intent(MusicPlay.PAUSE_OR_ARROW_FOCUS);
                         sendBroadcast(intent);
                     }
                     break;
@@ -188,8 +177,14 @@ public class MusicPlayService extends Service {
             if (action.equals(MusicPlay.PAUSE_OR_ARROW_NOTIFY)){
                 MusicPlay.pausePlay();
                 MusicPlay.reNewNotification();
+            }else if (action.equals(MusicPlay.PAUSE_OR_ARROW_FOCUS)){
+                MusicPlay.sendNotification();
             }else if (action.equals(MusicPlay.NEXTSONG_NOTIFY)){
                 MusicPlay.nextSong();
+            }else if (action.equals(MusicPlay.PAUSE_OR_ARROW)){
+                if (MusicPlay.mediaPlayer.isPlaying()){
+                    MusicPlay.sendNotification();
+                }
             }else if (action.equals(MusicPlay.OPEN_MUSIC_PLAY)){
                 Intent startIntent = new Intent(MusicPlayService.this, MusicPlayActivity.class);
                 startIntent.putExtra("dateList", (Serializable) dataList);
@@ -204,6 +199,7 @@ public class MusicPlayService extends Service {
                 audioManager.abandonAudioFocus(myAudFocListener);
                 stopSelf();
             }else if (action.equals(MusicPlay.CLOSEAPP)){
+                Log.i(TAG,"reseive closeapp");
                 if (MusicPlay.mediaPlayer!=null&&!MusicPlay.mediaPlayer.isPlaying()) {
 //                    audioManager.abandonAudioFocus(myAudFocListener);
                     Intent sendIntent = new Intent(MusicPlay.CANCEL_PLAY);

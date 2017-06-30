@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
@@ -35,12 +36,21 @@ import com.ider.musicplay.popu.Popus;
 import com.ider.musicplay.service.MusicPlayService;
 import com.ider.musicplay.util.BaseActivity;
 import com.ider.musicplay.util.FindMusic;
+import com.ider.musicplay.util.LastPlayInfo;
+import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
+import com.ider.musicplay.util.Utility;
 
+
+import org.litepal.crud.DataSupport;
 
 import java.io.File;
 
-
+import static android.R.attr.path;
+import static android.os.Build.VERSION_CODES.M;
+import static com.ider.musicplay.util.MusicPlay.dataList;
+import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
+import static com.ider.musicplay.util.MusicPlay.position;
 
 
 public class MainActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
@@ -48,8 +58,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
 
     private String TAG = "MainActivity";
     private Context context;
-    private TextView notice, musicnum ,nowTime;
-    private ImageView fresh;
+    private TextView notice, musicnum ,nowTime,musicName,musicArtist;
+    private ImageView fresh,songCover,pauseMusic,nextMusic;
     private ProgressBar progressBar;
     private MusicAdapter adapter;
     private ListView listView;
@@ -57,6 +67,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     private NavigationView navigationView;
     private boolean isFreshing=false;
     private int lastPosition;
+    private LinearLayout lastMusic;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,21 +82,35 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             actionBar.setDisplayHomeAsUpEnabled(true);
             actionBar.setHomeAsUpIndicator(R.drawable.ic_list_white_24dp);
         }
+        lastMusic = (LinearLayout)findViewById(R.id.last_music);
+        songCover = (ImageView)findViewById(R.id.song_cover);
+        musicName = (TextView) findViewById(R.id.music_name);
+        musicArtist = (TextView) findViewById(R.id.music_artist);
+        pauseMusic = (ImageView)findViewById(R.id.pause_music);
+        nextMusic = (ImageView)findViewById(R.id.next_music);
         fresh = (ImageView) findViewById(R.id.fresh);
         progressBar = (ProgressBar)findViewById(R.id.progress_bar) ;
         notice = (TextView) findViewById(R.id.hav_no_music);
         musicnum= (TextView) findViewById(R.id.music_num);
         navigationView = (NavigationView) findViewById(R.id.nav_view);
+
         fresh.setOnClickListener(this);
         notice.setOnClickListener(this);
+        lastMusic.setOnClickListener(this);
+        pauseMusic.setOnClickListener(this);
+        nextMusic.setOnClickListener(this);
+
         listView = (ListView) findViewById(R.id.music_list);
         adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item, MusicPlay.dataList);
         listView.setAdapter(adapter);
+        MusicPlay.initialize();
+
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
         }else {
             initList();
         }
+
 
 
         navigationView.setCheckedItem(R.id.nav_time);
@@ -103,15 +128,35 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
             public void onItemClick(AdapterView<?> parent, View view,int position,long id){
-                MusicPlay.music = MusicPlay.dataList.get(position);
-                String path = MusicPlay.music.getMusicPath();
-                if (new File(path).exists()){
-                    Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
-                    MusicPlay.position = position;
-                    startService(startIntent);
+                if (!MusicPlay.dataList.get(position).equals(MusicPlay.music)){
+                    MusicPlay.music = MusicPlay.dataList.get(position);
+                    String path = MusicPlay.music.getMusicPath();
+                    if (new File(path).exists()){
+                        MusicPlay.position = position;
+                        MusicPlay.initMediaPlayer();
+                        Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startService(startIntent);
+                        MusicPlay.mediaPlayer.start();
+                    }else {
+                        Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
+                    }
+                }else if (MusicPlay.dataList.get(position).equals(MusicPlay.music)&&!MusicPlay.mediaPlayer.isPlaying()){
+                    String path = MusicPlay.music.getMusicPath();
+                    if (new File(path).exists()){
+                        MusicPlay.position = position;
+                        MusicPlay.initMediaPlayer();
+                        MusicPlay.mediaPlayer.seekTo(MusicPlay.lastPlayInfo.getPlayPosition());
+                        Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startService(startIntent);
+                        MusicPlay.mediaPlayer.start();
+                    }else {
+                        Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
+                    }
                 }else {
-                    Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
+                    Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                    startService(startIntent);
                 }
+
 
 
             }
@@ -156,14 +201,54 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     }
     private void initView(){
         if (MusicPlay.dataList.size()>0){
+            SharedPreferences preferences = getSharedPreferences("music_play", Context.MODE_PRIVATE);
+            boolean haveLastPlayInfo = preferences.getBoolean("have_last_play_info", false);
+            if (haveLastPlayInfo){
+                MusicPlay.lastPlayInfo  = DataSupport.findLast(LastPlayInfo.class);
+            }
+
+            if (MusicPlay.lastPlayInfo!=null){
+                MusicPlay.music = new Music();
+                Utility.getMusicFromInfo(lastPlayInfo,MusicPlay.music);
+                lastMusic.setVisibility(View.VISIBLE);
+                songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),true));
+                musicName.setText(MusicPlay.music.getMusicName());
+                musicArtist.setText(MusicPlay.music.getMusicArtist());
+                if (!MusicPlay.mediaPlayer.isPlaying()){
+                    pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+                }else {
+                    pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
+                }
+            }else {
+                lastMusic.setVisibility(View.GONE);
+            }
             notice.setVisibility(View.GONE);
+            musicnum.setText(MusicPlay.dataList.size()+"首");
+            Log.i("musicplay","dateList.size()="+MusicPlay.dataList.size());
+            adapter.notifyDataSetChanged();
+            for (int i =0;i<dataList.size();i++){
+                Music music = dataList.get(i);
+                if (music.equals(MusicPlay.music)){
+                    MusicPlay.position = i;
+                    Log.i(TAG,"position="+MusicPlay.position);
+                }
+            }
 
         }else {
             notice.setVisibility(View.VISIBLE);
         }
-        musicnum.setText(MusicPlay.dataList.size()+"首");
-        Log.i("musicplay","dateList.size()="+MusicPlay.dataList.size());
-        adapter.notifyDataSetChanged();
+
+    }
+
+    private void reNewView(){
+        songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),true));
+        musicName.setText(MusicPlay.music.getMusicName());
+        musicArtist.setText(MusicPlay.music.getMusicArtist());
+        if (!MusicPlay.mediaPlayer.isPlaying()){
+            pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+        }else {
+            pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
+        }
     }
 
     @Override
@@ -177,7 +262,45 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                     isFreshing = true;
                     queryMusic();
                 }
-//                showDropDownPopupDialog();
+                break;
+           case R.id.last_music:
+               if (!MusicPlay.mediaPlayer.isPlaying()){
+                   String path = MusicPlay.music.getMusicPath();
+                   if (new File(path).exists()){
+                       MusicPlay.initMediaPlayer();
+                       MusicPlay.mediaPlayer.seekTo(MusicPlay.lastPlayInfo.getPlayPosition());
+                       Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                       startService(startIntent);
+                   }else {
+                       Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
+                   }
+               }else {
+                   Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                   startService(startIntent);
+               }
+               break;
+            case R.id.pause_music:
+                if (!MusicPlay.mediaPlayer.isPlaying()){
+                    String path = MusicPlay.music.getMusicPath();
+                    if (new File(path).exists()){
+                        MusicPlay.initMediaPlayer();
+                        MusicPlay.mediaPlayer.seekTo(MusicPlay.lastPlayInfo.getPlayPosition());
+                        pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
+                        Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startIntent.putExtra("commend","only_play");
+                        startService(startIntent);
+                        MusicPlay.pausePlay();
+                    }else {
+                        Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
+                    }
+                }else {
+                    MusicPlay.pausePlay();
+                    MusicPlay.notificationManager.cancel(1);
+                    Utility.saveMusicToInfo(MusicPlay.music,MusicPlay.lastPlayInfo);
+                    MusicPlay.lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
+                    MusicPlay.lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
+                    pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+                }
                 break;
             default:
                 break;
@@ -327,6 +450,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     @Override
     public void onResume(){
         Log.i(TAG,"onResume()");
+        reNewView();
         super.onResume();
     }
 

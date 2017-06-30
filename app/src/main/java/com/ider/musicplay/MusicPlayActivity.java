@@ -27,10 +27,13 @@ import android.widget.TextView;
 
 import com.ider.musicplay.service.MusicPlayService;
 import com.ider.musicplay.util.BaseActivity;
+import com.ider.musicplay.util.LastPlayInfo;
 import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
 import com.ider.musicplay.util.Utility;
 import com.ider.musicplay.view.ColorSeekBar;
+
+import org.litepal.crud.DataSupport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import de.hdodenhof.circleimageview.CircleImageView;
 
 import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
+import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
 import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
 import static com.ider.musicplay.util.MusicPlay.position;
 
@@ -165,11 +169,15 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     private void initMediaPlayer(){
         try{
-            arrow.setImageResource(R.drawable.ic_pause_white_48dp);
+            if (MusicPlay.mediaPlayer.isPlaying()){
+                arrow.setImageResource(R.drawable.ic_pause_white_48dp);
+            }else {
+                arrow.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+            }
+
             isSetProgress=false;
-//            MusicPlay.initMediaPlayer();
             seekBar.setMax(mediaPlayer.getDuration());
-            cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+            cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
             musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
             musicName.setText(MusicPlay.music.getMusicName());
             Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
@@ -200,7 +208,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         arrow.setImageResource(R.drawable.ic_pause_white_48dp);
         isSetProgress=false;
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
         musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
         musicName.setText(MusicPlay.music.getMusicName());
         Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
@@ -226,7 +234,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     private void initView(){
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(this,MusicPlay.music.getMusicPath(),false));
+        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
         musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
         musicName.setText(MusicPlay.music.getMusicName());
         if (mediaPlayer.isPlaying()){
@@ -330,6 +338,11 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     @Override
     public void onBackPressed(){
+        if (!MusicPlay.mediaPlayer.isPlaying()){
+            Utility.saveMusicToInfo(MusicPlay.music,MusicPlay.lastPlayInfo);
+            MusicPlay.lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
+            MusicPlay.lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
+        }
         Intent intent = new Intent(this,MainActivity.class);
         startActivity(intent);
         overridePendingTransition(R.anim.alpha_in, R.anim.alpha_out);
@@ -372,7 +385,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                     MusicPlay.notificationManager.cancel(1);
                 }else {
                     MusicPlay.pausePlay();
-                    MusicPlay.reNewNotification();
+                    MusicPlay.sendNotification();
                 }
 
                 break;

@@ -94,7 +94,7 @@ public class Music extends DataSupport implements Serializable {
     public boolean equals(Object object){
         if (object instanceof Music){
             Music music= (Music) object;
-            if (music.musicPath.equals(this.musicPath)){
+            if (music.musicPath.equals(this.musicPath)&&music.musicName.equals(this.musicName)){
                 return true;
             }else{
                 return false;

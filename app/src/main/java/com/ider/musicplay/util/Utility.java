@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.net.ConnectException;
 import java.security.MessageDigest;
 
 import static com.ider.musicplay.util.FindMusic.scanMusic;
@@ -33,6 +34,7 @@ import static com.ider.musicplay.util.FindMusic.scanMusic;
 
 public class Utility {
     private static String TAG = "Utility";
+    private static Context context = MyApplication.getContext();
     private static final Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
     private static final BitmapFactory.Options sBitmapOptions = new BitmapFactory.Options();
     private static Bitmap mCachedBit = null;
@@ -145,7 +147,7 @@ public class Utility {
     }
 
 
-    public static Bitmap createAlbumArt(Context context,final String filePath,boolean isNarrow) {
+    public static Bitmap createAlbumArt(final String filePath,boolean isNarrow) {
         Bitmap bitmap = null;
         //能够获取多媒体文件元数据的类
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();

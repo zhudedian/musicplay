@@ -9,7 +9,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:background="@drawable/background"
+    android:background="@drawable/music_play_back"
     tools:context="com.ider.musicplay.MusicPlayActivity">
     <LinearLayout
         android:orientation="vertical"
@@ -56,7 +56,7 @@
         android:layout_alignParentBottom="true"
         android:layout_marginBottom="60dp"
         android:layout_alignParentLeft="true"
-        android:textColor="#5a5a5a"
+        android:textColor="#a6a6a6"
         android:textSize="15dp"/>
     <TextView
         android:id="@+id/music_duration"
@@ -66,7 +66,7 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentRight="true"
         android:textSize="15dp"
-        android:textColor="#686868"/>
+        android:textColor="#9b9b9b"/>
     <SeekBar
         android:id="@+id/playSeekBar"
         android:layout_width="280dp"
@@ -116,7 +116,7 @@
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:textSize="30dp"
-        android:textColor="#adadad"/>
+        android:textColor="#b7b7b7"/>
 
 
 </RelativeLayout>
