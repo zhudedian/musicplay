@@ -6,15 +6,18 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.provider.MediaStore;
 import android.util.Log;
 
 import com.ider.musicplay.R;
-
-import org.litepal.crud.DataSupport;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -23,10 +26,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
-import java.net.ConnectException;
 import java.security.MessageDigest;
-
-import static com.ider.musicplay.util.FindMusic.scanMusic;
 
 /**
  * Created by Eric on 2017/6/13.
@@ -63,6 +63,24 @@ public class Utility {
         lastPlayInfo.setMusicSize(music.getMusicSize());
         lastPlayInfo.setMusicPath(music.getMusicPath());
         lastPlayInfo.setMd5(music.getMd5());
+    }
+
+    public static Bitmap toRoundCornerImage(Bitmap bitmap, int pixels) {
+        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        final int color = 0xff424242;
+        final Paint paint = new Paint();
+        final Rect rect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+        final RectF rectF = new RectF(rect);
+        final float roundPx = pixels;
+        // 抗锯齿
+        paint.setAntiAlias(true);
+        canvas.drawARGB(0, 0, 0, 0);
+        paint.setColor(color);
+        canvas.drawRoundRect(rectF, roundPx, roundPx, paint);
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+        canvas.drawBitmap(bitmap, rect, rect, paint);
+        return output;
     }
 
     public static Bitmap getArtwork(Context context, long song_id, long album_id, boolean allowdefault) {
@@ -147,20 +165,26 @@ public class Utility {
     }
 
 
-    public static Bitmap createAlbumArt(final String filePath,boolean isNarrow) {
+    public static Bitmap createAlbumArt(final String filePath,int inSampleSize) {
         Bitmap bitmap = null;
         //能够获取多媒体文件元数据的类
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             retriever.setDataSource(filePath); //设置数据源
             BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = 10;
-            byte[] embedPic = retriever.getEmbeddedPicture(); //得到字节型数据
-            if (embedPic!=null&&isNarrow) {
-                bitmap = BitmapFactory.decodeByteArray(embedPic, 0, embedPic.length, options); //转换为图片
-            }else if(embedPic!=null){
-                bitmap = BitmapFactory.decodeByteArray(embedPic, 0, embedPic.length);
+            if (inSampleSize!=-1) {
+                options.inSampleSize = inSampleSize;
+                byte[] embedPic = retriever.getEmbeddedPicture(); //得到字节型数据
+                if (embedPic!=null) {
+                    bitmap = BitmapFactory.decodeByteArray(embedPic, 0, embedPic.length, options); //转换为图片
+                }
+            }else {
+                byte[] embedPic = retriever.getEmbeddedPicture(); //得到字节型数据
+                if(embedPic!=null){
+                    bitmap = BitmapFactory.decodeByteArray(embedPic, 0, embedPic.length);
+                }
             }
+
 
         } catch (Exception e) {
             e.printStackTrace();

@@ -43,7 +43,13 @@ import java.util.concurrent.TimeUnit;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
+import static com.ider.musicplay.util.MusicPlay.NEXTSONG;
+import static com.ider.musicplay.util.MusicPlay.ORDER_PLAY;
 import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
+import static com.ider.musicplay.util.MusicPlay.PLAY_MODE;
+import static com.ider.musicplay.util.MusicPlay.RANDOM_PLAY;
+import static com.ider.musicplay.util.MusicPlay.historyList;
+import static com.ider.musicplay.util.MusicPlay.historyPosition;
 import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
 import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
 import static com.ider.musicplay.util.MusicPlay.position;
@@ -61,7 +67,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
     private boolean isLongTouch;
     private int newPosition=0,lastPosition;
     private Button play,pause,stop;
-    private ImageView previous,arrow,next;
+    private ImageView playMode,previous,arrow,next;
     private CircleImageView cover;
     private TextView musicName,playTime,musicDuration;
     private Animation animation;
@@ -83,6 +89,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         play = (Button) findViewById(R.id.play);
         pause = (Button) findViewById(R.id.pause);
         stop = (Button) findViewById(R.id.stop);
+        playMode = (ImageView)findViewById(R.id.play_mode);
         previous = (ImageView) findViewById(R.id.previous);
         arrow = (ImageView) findViewById(R.id.arrow_or_pause);
         next = (ImageView) findViewById(R.id.next);
@@ -94,16 +101,20 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         play.setOnClickListener(this);
         pause.setOnClickListener(this);
         stop.setOnClickListener(this);
+        playMode.setOnClickListener(this);
         previous.setOnClickListener(this);
         arrow.setOnClickListener(this);
         next.setOnClickListener(this);
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(MusicPlay.NEXTSONG);
-        filter.addAction(PAUSE_OR_ARROW);
-        filter.addAction(MusicPlay.NEXTSONG_NOTIFY);
-        filter.addAction(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
-        filter.addAction(MusicPlay.CANCEL_PLAY);
-        registerReceiver(myReceiver, filter);
+
+        if (MusicPlay.PLAY_MODE.equals(MusicPlay.RANDOM_PLAY)){
+            playMode.setImageResource(R.drawable.lockscreen_player_btn_random);
+
+        }else if (MusicPlay.PLAY_MODE.equals(MusicPlay.ORDER_PLAY)){
+            playMode.setImageResource(R.drawable.lockscreen_player_btn_repeat_normal);
+        }else {
+            playMode.setImageResource(R.drawable.lockscreen_player_btn_repeat_once);
+        }
+        registerReceiver();
         if (savedInstanceState != null){
             initView();
         }else {
@@ -119,10 +130,13 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     private void registerReceiver()
     {
-        musicPlayReceiver = new MusicPlayReceiver();
-        IntentFilter intentFilter = new IntentFilter(MusicPlayReceiver.ACTION_1);
-        intentFilter.addAction(MusicPlayReceiver.ACTION_2);
-        registerReceiver(musicPlayReceiver, intentFilter);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(NEXTSONG);
+        filter.addAction(PAUSE_OR_ARROW);
+        filter.addAction(MusicPlay.NEXTSONG_NOTIFY);
+        filter.addAction(MusicPlay.PAUSE_OR_ARROW_NOTIFY);
+        filter.addAction(MusicPlay.CANCEL_PLAY);
+        registerReceiver(myReceiver, filter);
     }
 
 
@@ -177,7 +191,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
             isSetProgress=false;
             seekBar.setMax(mediaPlayer.getDuration());
-            cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
+            cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),-1));
             musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
             musicName.setText(MusicPlay.music.getMusicName());
             Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
@@ -208,7 +222,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         arrow.setImageResource(R.drawable.ic_pause_white_48dp);
         isSetProgress=false;
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
+        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),-1));
         musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
         musicName.setText(MusicPlay.music.getMusicName());
         Log.i("musicplay","musicname:"+MusicPlay.music.getMusicName()+"musicid:"+MusicPlay.music.getMusic_id()+"musicalbum_id:"+MusicPlay.music.getMusicAlbum_id());
@@ -234,7 +248,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     private void initView(){
         seekBar.setMax(mediaPlayer.getDuration());
-        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),false));
+        cover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),-1));
         musicDuration.setText(Utility.formatTime(MusicPlay.music.getMusicDuration()));
         musicName.setText(MusicPlay.music.getMusicName());
         if (mediaPlayer.isPlaying()){
@@ -375,8 +389,26 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
             case R.id.next:
                 nextSong();
                 break;
+            case R.id.play_mode:
+                if (MusicPlay.PLAY_MODE.equals(MusicPlay.RANDOM_PLAY)){
+                    MusicPlay.PLAY_MODE = MusicPlay.ORDER_PLAY;
+                    playMode.setImageResource(R.drawable.lockscreen_player_btn_repeat_normal);
+                }else if (MusicPlay.PLAY_MODE.equals(MusicPlay.ORDER_PLAY)){
+                    MusicPlay.PLAY_MODE= MusicPlay.SINGLE_PLAY;
+                    playMode.setImageResource(R.drawable.lockscreen_player_btn_repeat_once);
+                }else {
+                    MusicPlay.PLAY_MODE = MusicPlay.RANDOM_PLAY;
+                    playMode.setImageResource(R.drawable.lockscreen_player_btn_random);
+                }
+                break;
             case R.id.previous:
-
+                if (MusicPlay.historyPosition>0){
+                    MusicPlay.music = MusicPlay.historyList.get(--historyPosition);
+                }
+                MusicPlay.initMediaPlayer();
+                MusicPlay.mediaPlayer.start();
+                Intent intent = new Intent(MusicPlay.NEXTSONG);
+                sendBroadcast(intent);
 //                stopService(new Intent(MainActivity.this,StartService.class));
                 break;
             case R.id.arrow_or_pause:
@@ -387,7 +419,6 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                     MusicPlay.pausePlay();
                     MusicPlay.sendNotification();
                 }
-
                 break;
             default:
                 break;

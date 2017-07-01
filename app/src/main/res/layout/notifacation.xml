@@ -8,7 +8,10 @@
         android:id="@+id/song_cover"
         android:layout_width="40dp"
         android:layout_height="40dp"
+        android:maxWidth="40dp"
+        android:maxHeight="40dp"
         android:layout_weight="1"
+        android:adjustViewBounds="true"
         android:layout_gravity="center_vertical"/>
     <LinearLayout
         android:orientation="vertical"

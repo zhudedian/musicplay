@@ -1,8 +1,10 @@
 package com.ider.musicplay;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -45,11 +47,16 @@ import com.ider.musicplay.util.Utility;
 import org.litepal.crud.DataSupport;
 
 import java.io.File;
+import java.util.ArrayList;
+
+import de.hdodenhof.circleimageview.CircleImageView;
 
 import static android.R.attr.path;
 import static android.os.Build.VERSION_CODES.M;
+import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
 import static com.ider.musicplay.util.MusicPlay.dataList;
 import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
+import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
 import static com.ider.musicplay.util.MusicPlay.position;
 
 
@@ -59,7 +66,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     private String TAG = "MainActivity";
     private Context context;
     private TextView notice, musicnum ,nowTime,musicName,musicArtist;
-    private ImageView fresh,songCover,pauseMusic,nextMusic;
+    private ImageView fresh,pauseMusic,nextMusic;
+    private CircleImageView songCover;
     private ProgressBar progressBar;
     private MusicAdapter adapter;
     private ListView listView;
@@ -83,7 +91,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             actionBar.setHomeAsUpIndicator(R.drawable.ic_list_white_24dp);
         }
         lastMusic = (LinearLayout)findViewById(R.id.last_music);
-        songCover = (ImageView)findViewById(R.id.song_cover);
+        songCover = (CircleImageView)findViewById(R.id.song_cover);
         musicName = (TextView) findViewById(R.id.music_name);
         musicArtist = (TextView) findViewById(R.id.music_artist);
         pauseMusic = (ImageView)findViewById(R.id.pause_music);
@@ -111,7 +119,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             initList();
         }
 
-
+        registerReceiver();
 
         navigationView.setCheckedItem(R.id.nav_time);
         navigationView.setNavigationItemSelectedListener(new NavigationView.OnNavigationItemSelectedListener(){
@@ -133,6 +141,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                     String path = MusicPlay.music.getMusicPath();
                     if (new File(path).exists()){
                         MusicPlay.position = position;
+                        MusicPlay.historyList.add(MusicPlay.music);
+                        MusicPlay.historyPosition = MusicPlay.historyList.size()-1;
                         MusicPlay.initMediaPlayer();
                         Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
                         startService(startIntent);
@@ -206,12 +216,14 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             if (haveLastPlayInfo){
                 MusicPlay.lastPlayInfo  = DataSupport.findLast(LastPlayInfo.class);
             }
-
             if (MusicPlay.lastPlayInfo!=null){
                 MusicPlay.music = new Music();
-                Utility.getMusicFromInfo(lastPlayInfo,MusicPlay.music);
+                Utility.getMusicFromInfo(MusicPlay.lastPlayInfo,MusicPlay.music);
+                MusicPlay.PLAY_MODE = MusicPlay.lastPlayInfo.getPlayMode();
+                MusicPlay.historyList = new ArrayList<>();
+                MusicPlay.historyList.add(MusicPlay.music);
                 lastMusic.setVisibility(View.VISIBLE);
-                songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),true));
+                songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),6));
                 musicName.setText(MusicPlay.music.getMusicName());
                 musicArtist.setText(MusicPlay.music.getMusicArtist());
                 if (!MusicPlay.mediaPlayer.isPlaying()){
@@ -241,7 +253,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     }
 
     private void reNewView(){
-        songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),true));
+        songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),6));
         musicName.setText(MusicPlay.music.getMusicName());
         musicArtist.setText(MusicPlay.music.getMusicArtist());
         if (!MusicPlay.mediaPlayer.isPlaying()){
@@ -249,10 +261,27 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         }else {
             pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
         }
+        adapter.notifyDataSetChanged();
     }
+    private void registerReceiver()
+    {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(MusicPlay.NEXTSONG);
+        registerReceiver(myReceiver, filter);
+    }
+    BroadcastReceiver myReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(MusicPlay.NEXTSONG)){
+               reNewView();
+            }
+        }
+    };
 
     @Override
     public void onClick(View view){
+        adapter.notifyDataSetChanged();
         switch (view.getId()){
             case R.id.hav_no_music:
                 initList();
@@ -300,6 +329,20 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                     MusicPlay.lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
                     MusicPlay.lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
                     pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+                }
+                break;
+            case R.id.next_music:
+                if (MusicPlay.dataList.size()>0){
+                    MusicPlay.initMediaPlayer();
+                    if (MusicPlayService.myAudFocListener==null){
+                        Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startIntent.putExtra("commend","only_play");
+                        startService(startIntent);
+                    }
+                    MusicPlay.nextSong();
+                    reNewView();
+                }else {
+                    Toast.makeText(MainActivity.this,"未发现本地音乐！",Toast.LENGTH_SHORT).show();
                 }
                 break;
             default:
@@ -468,6 +511,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     @Override
     protected void onDestroy(){
         super.onDestroy();
+        unregisterReceiver(myReceiver);
 
     }
 }

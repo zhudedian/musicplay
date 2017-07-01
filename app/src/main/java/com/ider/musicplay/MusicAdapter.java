@@ -2,13 +2,16 @@ package com.ider.musicplay;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.AnimationDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.ider.musicplay.util.Music;
+import com.ider.musicplay.util.MusicPlay;
 
 import java.util.List;
 
@@ -39,6 +42,7 @@ public class MusicAdapter extends ArrayAdapter<Music> {
             viewHolder.name = (TextView)view.findViewById(R.id.music_name);
             viewHolder.album = (TextView)view.findViewById(R.id.music_album);
             viewHolder.artist = (TextView)view.findViewById(R.id.music_artist);
+            viewHolder.playing = (ImageView)view.findViewById(R.id.playing_image);
             view.setTag(viewHolder);
         }else {
             view = convertView;
@@ -47,11 +51,26 @@ public class MusicAdapter extends ArrayAdapter<Music> {
         viewHolder.name.setText(music.getMusicName());
         viewHolder.album.setText("专辑："+music.getMusicAlbum());
         viewHolder.artist.setText(music.getMusicArtist());
+        if (music.equals(MusicPlay.music)){
+            viewHolder.playing.setVisibility(View.VISIBLE);
+            if (MusicPlay.mediaPlayer.isPlaying()){
+                viewHolder.playing.setImageResource(R.drawable.playing);
+                AnimationDrawable animationDrawable = (AnimationDrawable)viewHolder.playing.getDrawable();
+                animationDrawable.start();
+            }else {
+                viewHolder.playing.setImageResource(R.drawable.playing);
+                AnimationDrawable animationDrawable = (AnimationDrawable)viewHolder.playing.getDrawable();
+                animationDrawable.stop();
+            }
+
+        }else {
+            viewHolder.playing.setVisibility(View.GONE);
+        }
 
         return view;
     }
     class ViewHolder{
         TextView name,album,artist;
-
+        ImageView playing;
     }
 }

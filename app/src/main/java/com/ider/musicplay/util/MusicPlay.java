@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -28,7 +29,7 @@ import java.util.Random;
  * Created by Eric on 2017/6/20.
  */
 
-public class MusicPlay implements Serializable {
+public class MusicPlay {
 
     public static NotificationManager notificationManager;
 
@@ -49,6 +50,10 @@ public class MusicPlay implements Serializable {
     public static SharedPreferences preferences;
 
     public static List<Music> dataList = new ArrayList<>();
+
+    public static List<Music> historyList ;
+
+    public static int historyPosition =0;
 
     public static int position;
 
@@ -76,6 +81,10 @@ public class MusicPlay implements Serializable {
 
     public static final String RANDOM_PLAY = "random_play";
 
+    public static final String ORDER_PLAY = "order_play";
+
+    public static final String SINGLE_PLAY = "single_play";
+
 
 
     public static void initialize(){
@@ -94,16 +103,15 @@ public class MusicPlay implements Serializable {
             mediaPlayer.setDataSource(path);
             mediaPlayer.prepare();
             mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-//            context.startService(new Intent(context,AudioFocusService.class));
-            MusicPlayService.audioManager.requestAudioFocus(MusicPlayService.myAudFocListener,
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-//            mediaPlayer.start();
             mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                 @Override
                 public void onCompletion(MediaPlayer mp) {
-                    nextSong();
-
+                    if (PLAY_MODE.equals(SINGLE_PLAY)){
+                        initMediaPlayer();
+                        mediaPlayer.start();
+                    }else {
+                        nextSong();
+                    }
                 }
             });
         }catch (Exception e){
@@ -114,14 +122,25 @@ public class MusicPlay implements Serializable {
     public static void nextSong(){
         mediaPlayer.reset();
         String path;
-        if (PLAY_MODE.equals(RANDOM_PLAY)) {
+        if (historyList.size()>historyPosition+1){
+            music = historyList.get(++historyPosition);
+            path=music.getMusicPath();
+        }else if (PLAY_MODE.equals(RANDOM_PLAY)) {
             Random random = new Random();
             int max = dataList.size();
             music = dataList.get(position=random.nextInt(max));
+            historyList.add(music);
+            historyPosition++;
             path = music.getMusicPath();
         }else {
-
-            music = dataList.get(++position);
+            if (position>=dataList.size()-1){
+                position=0;
+                music = dataList.get(position);
+            }else {
+                music = dataList.get(++position);
+            }
+            historyList.add(music);
+            historyPosition++;
             if (dataList==null){
                 music = dataList.get(position=0);
             }
@@ -182,7 +201,8 @@ public class MusicPlay implements Serializable {
             remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_play_arrow_white_24dp);
         }
 
-        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(music.getMusicPath(),true));
+        Bitmap bitmap = Utility.toRoundCornerImage(Utility.createAlbumArt(music.getMusicPath(),10),20);
+        remoteViews.setImageViewBitmap(R.id.song_cover,bitmap);
         remoteViews.setTextViewText(R.id.music_name,music.getMusicName());
         remoteViews.setTextViewText(R.id.music_artist,music.getMusicArtist());
         remoteViews.setOnClickPendingIntent(R.id.pause_music, button1PI);
@@ -192,8 +212,8 @@ public class MusicPlay implements Serializable {
         notification = new NotificationCompat.Builder(context)
                 .setContentTitle("通知2") // 创建通知的标题
                 .setContentText("这是第二个通知") // 创建通知的内容
-                .setSmallIcon(R.mipmap.ic_launcher) // 创建通知的小图标
-                .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher)) // 创建通知的大图标
+                .setSmallIcon(R.mipmap.launcher) // 创建通知的小图标
+                .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.launcher)) // 创建通知的大图标
         /*
          * 是使用自定义视图还是系统提供的视图，上面4的属性一定要设置，不然这个通知显示不出来
          */
@@ -213,7 +233,8 @@ public class MusicPlay implements Serializable {
         }else {
             remoteViews.setImageViewResource(R.id.pause_music,R.drawable.ic_play_arrow_white_48dp);
         }
-        remoteViews.setImageViewBitmap(R.id.song_cover,Utility.createAlbumArt(music.getMusicPath(),true));
+        Bitmap bitmap = Utility.toRoundCornerImage(Utility.createAlbumArt(music.getMusicPath(),10),20);
+        remoteViews.setImageViewBitmap(R.id.song_cover,bitmap);
         remoteViews.setTextViewText(R.id.music_name,music.getMusicName());
         remoteViews.setTextViewText(R.id.music_artist,music.getMusicArtist());
         notificationManager.notify(1, notification);

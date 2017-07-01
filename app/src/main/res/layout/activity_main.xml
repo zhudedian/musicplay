@@ -83,10 +83,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
                 android:background="#155f5e5f">
-                <ImageView
+                <de.hdodenhof.circleimageview.CircleImageView
                     android:id="@+id/song_cover"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_gravity="center_vertical"/>
                 <LinearLayout
