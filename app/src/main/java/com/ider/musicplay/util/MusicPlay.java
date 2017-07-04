@@ -19,7 +19,6 @@ import com.ider.musicplay.R;
 import com.ider.musicplay.service.MusicPlayService;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -39,19 +38,19 @@ public class MusicPlay {
     public static PendingIntent pendingIntent;
     public static String updateFile;
 
-    public static  MediaPlayer mediaPlayer;
+    public static  MediaPlayer mediaPlayer = new MediaPlayer();
 
     public static RemoteViews remoteViews;
 
-    private static Context context;
+    private static Context context = MyApplication.getContext();
 
-    public static LocalBroadcastManager localBroadcastManager;
+    public static LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(context);
 
-    public static SharedPreferences preferences;
+    public static SharedPreferences preferences = context.getSharedPreferences("music_play", Context.MODE_PRIVATE);
 
     public static List<Music> dataList = new ArrayList<>();
 
-    public static List<Music> historyList ;
+    public static List<Music> historyList = new ArrayList<>();;
 
     public static int historyPosition =0;
 
@@ -77,7 +76,7 @@ public class MusicPlay {
 
     public static final String PAUSE_OR_ARROW = "pause_or_arrow_play";
 
-    public static String PLAY_MODE ;
+    public static String PLAY_MODE  = preferences.getString("play_mode", "random_play");
 
     public static final String RANDOM_PLAY = "random_play";
 
@@ -87,13 +86,6 @@ public class MusicPlay {
 
 
 
-    public static void initialize(){
-        context = MyApplication.getContext();
-        mediaPlayer = new MediaPlayer();
-        localBroadcastManager = LocalBroadcastManager.getInstance(context);
-        preferences = context.getSharedPreferences("music_play", Context.MODE_PRIVATE);
-        PLAY_MODE = preferences.getString("play_mode", "random_play");
-    }
 
     public static void initMediaPlayer(){
         try{

@@ -67,6 +67,12 @@ public class MusicPlayService extends Service {
             registerReceiver();
             return super.onStartCommand(intent,flags,startId);
         }
+        if (intent!=null&&"open_play".equals(intent.getStringExtra("commend"))){
+            startMusicPlayActivity();
+            MusicPlay.sendNotification();
+            registerReceiver();
+            return super.onStartCommand(intent,flags,startId);
+        }
 //        Log.i(TAG,music.getMusicName());
 //        Log.i("MusicPlayService1",((Music)intent.getSerializableExtra("music")).getMusicPath());
         if (isTopActivity("MusicPlayActivity")){
@@ -77,9 +83,7 @@ public class MusicPlayService extends Service {
             return super.onStartCommand(intent,flags,startId);
         }
 
-        startMusicPlayActivity();
-        MusicPlay.sendNotification();
-        registerReceiver();
+
         return super.onStartCommand(intent,flags,startId);
     }
     private void registerReceiver(){

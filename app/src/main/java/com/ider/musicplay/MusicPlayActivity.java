@@ -25,17 +25,15 @@ import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.ider.musicplay.lrc.LrcHandle;
+import com.ider.musicplay.lrc.WordView;
 import com.ider.musicplay.service.MusicPlayService;
 import com.ider.musicplay.util.BaseActivity;
-import com.ider.musicplay.util.LastPlayInfo;
-import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
 import com.ider.musicplay.util.Utility;
 import com.ider.musicplay.view.ColorSeekBar;
 
-import org.litepal.crud.DataSupport;
-
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,22 +41,19 @@ import java.util.concurrent.TimeUnit;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
+import static android.icu.lang.UCharacter.GraphemeClusterBreak.L;
 import static com.ider.musicplay.util.MusicPlay.NEXTSONG;
-import static com.ider.musicplay.util.MusicPlay.ORDER_PLAY;
 import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
-import static com.ider.musicplay.util.MusicPlay.PLAY_MODE;
-import static com.ider.musicplay.util.MusicPlay.RANDOM_PLAY;
-import static com.ider.musicplay.util.MusicPlay.historyList;
 import static com.ider.musicplay.util.MusicPlay.historyPosition;
-import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
 import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
-import static com.ider.musicplay.util.MusicPlay.position;
 
 public class MusicPlayActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
 
     private String TAG = "MusicPlayActivity";
     private MusicPlayReceiver musicPlayReceiver;
 
+    private WordView mWordView;
+    private List<Integer> mTimeList;
     private SeekBar seekBar;
     private ColorSeekBar colorSeekBar;
     private boolean shortPress = false;
@@ -97,6 +92,8 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         musicName = (TextView) findViewById(R.id.music_name);
         playTime = (TextView) findViewById(R.id.play_time);
         musicDuration = (TextView) findViewById(R.id.music_duration);
+        mWordView = (WordView) findViewById(R.id.lrc_text);
+
         seekBar.setOnSeekBarChangeListener(this);
         play.setOnClickListener(this);
         pause.setOnClickListener(this);
@@ -115,13 +112,17 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
             playMode.setImageResource(R.drawable.lockscreen_player_btn_repeat_once);
         }
         registerReceiver();
+
+
         if (savedInstanceState != null){
             initView();
         }else {
             initMediaPlayer();
         }
 //        registerReceiver();
+
     }
+
 
     @Override
     protected void onSaveInstanceState(Bundle outState){
@@ -214,7 +215,10 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
         }catch (Exception e){
             e.printStackTrace();
         }
-
+        LrcHandle.setHandler(mHandler);
+        LrcHandle.findLrc(MusicPlay.music);
+        mWordView.setText("正在查找歌词……");
+        mTimeList=null;
         cover.startAnimation(animation);
     }
     private void nextSong(){
@@ -243,6 +247,9 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
             }
         }.start();
 
+        LrcHandle.findLrc(MusicPlay.music);
+        mWordView.setText("正在查找歌词……");
+        mTimeList=null;
         cover.startAnimation(animation);
     }
 
@@ -258,6 +265,9 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
             cover.clearAnimation();
             arrow.setImageResource(R.drawable.ic_play_arrow_white_48dp);
         }
+        LrcHandle.findLrc(MusicPlay.music);
+        mWordView.setText("正在查找歌词……");
+        mTimeList=null;
     }
 
     BroadcastReceiver myReceiver = new BroadcastReceiver() {
@@ -319,7 +329,13 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 //                    int max = seekBar.getMax();
                             seekBar.setProgress(position);
                             playTime.setText(Utility.formatTime(position));
-
+                            if (mTimeList!=null){
+                                for (int i = 0 ;i<mTimeList.size();i++){
+                                    if (position>mTimeList.get(i)&&position<mTimeList.get(i+1)){
+                                        mWordView.reNew(i);
+                                    }
+                                }
+                            }
                         }
                     }catch (Exception e){
                         e.printStackTrace();
@@ -341,6 +357,24 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                     }catch (Exception e){
                         e.printStackTrace();
                     }
+                    break;
+                case 2:
+                    try {
+                        LrcHandle.readLRC(LrcHandle.lrcPath);
+                        mWordView.setText(LrcHandle.getWords());
+                        mTimeList = LrcHandle.getTime();
+
+                    } catch (IllegalArgumentException e) {
+                        e.printStackTrace();
+                    } catch (SecurityException e) {
+                        e.printStackTrace();
+                    } catch (IllegalStateException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                case 3:
+                    mWordView.setText("未找到歌词");
+                    mTimeList = null;
                     break;
                 default:
                     break;
@@ -458,8 +492,8 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        Log.i("key",keyCode+""+event);
         if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            Log.i("key",keyCode+""+event);
             if(event.getAction() == KeyEvent.ACTION_DOWN){
                 event.startTracking();
                 if(event.getRepeatCount() == 0){

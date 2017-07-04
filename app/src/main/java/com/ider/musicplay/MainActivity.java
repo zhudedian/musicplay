@@ -7,8 +7,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.support.design.widget.NavigationView;
@@ -22,7 +22,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -43,21 +42,11 @@ import com.ider.musicplay.util.Music;
 import com.ider.musicplay.util.MusicPlay;
 import com.ider.musicplay.util.Utility;
 
-
 import org.litepal.crud.DataSupport;
 
 import java.io.File;
-import java.util.ArrayList;
 
 import de.hdodenhof.circleimageview.CircleImageView;
-
-import static android.R.attr.path;
-import static android.os.Build.VERSION_CODES.M;
-import static com.ider.musicplay.util.MusicPlay.PAUSE_OR_ARROW;
-import static com.ider.musicplay.util.MusicPlay.dataList;
-import static com.ider.musicplay.util.MusicPlay.lastPlayInfo;
-import static com.ider.musicplay.util.MusicPlay.mediaPlayer;
-import static com.ider.musicplay.util.MusicPlay.position;
 
 
 public class MainActivity extends BaseActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
@@ -111,7 +100,6 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
         listView = (ListView) findViewById(R.id.music_list);
         adapter = new MusicAdapter(MainActivity.this,R.layout.music_list_item, MusicPlay.dataList);
         listView.setAdapter(adapter);
-        MusicPlay.initialize();
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
@@ -145,6 +133,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                         MusicPlay.historyPosition = MusicPlay.historyList.size()-1;
                         MusicPlay.initMediaPlayer();
                         Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startIntent.putExtra("commend","open_play");
                         startService(startIntent);
                         MusicPlay.mediaPlayer.start();
                     }else {
@@ -157,6 +146,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                         MusicPlay.initMediaPlayer();
                         MusicPlay.mediaPlayer.seekTo(MusicPlay.lastPlayInfo.getPlayPosition());
                         Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                        startIntent.putExtra("commend","open_play");
                         startService(startIntent);
                         MusicPlay.mediaPlayer.start();
                     }else {
@@ -164,6 +154,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                     }
                 }else {
                     Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                    startIntent.putExtra("commend","open_play");
                     startService(startIntent);
                 }
 
@@ -172,7 +163,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             }
         });
 
-
+Log.i(TAG,"Environment.getExternalStorageDirectory().getAbsolutePath() = "+ Environment.getExternalStorageDirectory().getAbsolutePath());
 
     }
     private void initList(){
@@ -191,6 +182,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     private void queryMusic(){
         progressBar.setVisibility(View.VISIBLE);
         listView.setVisibility(View.GONE);
+        lastMusic.setVisibility(View.GONE);
         FindMusic.findFromMedia();
         new Thread(){
             public void run() {
@@ -220,7 +212,6 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                 MusicPlay.music = new Music();
                 Utility.getMusicFromInfo(MusicPlay.lastPlayInfo,MusicPlay.music);
                 MusicPlay.PLAY_MODE = MusicPlay.lastPlayInfo.getPlayMode();
-                MusicPlay.historyList = new ArrayList<>();
                 MusicPlay.historyList.add(MusicPlay.music);
                 lastMusic.setVisibility(View.VISIBLE);
                 songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),6));
@@ -238,8 +229,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
             musicnum.setText(MusicPlay.dataList.size()+"首");
             Log.i("musicplay","dateList.size()="+MusicPlay.dataList.size());
             adapter.notifyDataSetChanged();
-            for (int i =0;i<dataList.size();i++){
-                Music music = dataList.get(i);
+            for (int i =0;i<MusicPlay.dataList.size();i++){
+                Music music = MusicPlay.dataList.get(i);
                 if (music.equals(MusicPlay.music)){
                     MusicPlay.position = i;
                     Log.i(TAG,"position="+MusicPlay.position);
@@ -253,14 +244,21 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
     }
 
     private void reNewView(){
-        songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),6));
-        musicName.setText(MusicPlay.music.getMusicName());
-        musicArtist.setText(MusicPlay.music.getMusicArtist());
-        if (!MusicPlay.mediaPlayer.isPlaying()){
-            pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+        if (MusicPlay.music!=null){
+            lastMusic.setVisibility(View.VISIBLE);
+            songCover.setImageBitmap(Utility.createAlbumArt(MusicPlay.music.getMusicPath(),6));
+            musicName.setText(MusicPlay.music.getMusicName());
+            musicArtist.setText(MusicPlay.music.getMusicArtist());
+            if (!MusicPlay.mediaPlayer.isPlaying()){
+                pauseMusic.setImageResource(R.drawable.ic_play_arrow_white_48dp);
+            }else {
+                pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
+            }
         }else {
-            pauseMusic.setImageResource(R.drawable.ic_pause_white_48dp);
+            lastMusic.setVisibility(View.GONE);
         }
+
+
         adapter.notifyDataSetChanged();
     }
     private void registerReceiver()
@@ -299,12 +297,14 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                        MusicPlay.initMediaPlayer();
                        MusicPlay.mediaPlayer.seekTo(MusicPlay.lastPlayInfo.getPlayPosition());
                        Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                       startIntent.putExtra("commend","open_play");
                        startService(startIntent);
                    }else {
                        Toast.makeText(MainActivity.this,"该音乐不存在！",Toast.LENGTH_SHORT).show();
                    }
                }else {
                    Intent startIntent = new Intent(MainActivity.this,MusicPlayService.class);
+                   startIntent.putExtra("commend","open_play");
                    startService(startIntent);
                }
                break;
@@ -325,6 +325,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                 }else {
                     MusicPlay.pausePlay();
                     MusicPlay.notificationManager.cancel(1);
+                    if (MusicPlay.lastPlayInfo==null){
+                        MusicPlay.lastPlayInfo= new LastPlayInfo();
+                    }
                     Utility.saveMusicToInfo(MusicPlay.music,MusicPlay.lastPlayInfo);
                     MusicPlay.lastPlayInfo.setPlayMode(MusicPlay.PLAY_MODE);
                     MusicPlay.lastPlayInfo.setPlayPosition(MusicPlay.mediaPlayer.getCurrentPosition());
@@ -363,6 +366,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener,S
                     initList();
                     progressBar.setVisibility(View.GONE);
                     listView.setVisibility(View.VISIBLE);
+                    lastMusic.setVisibility(View.VISIBLE);
                     isFreshing = false;
                     break;
                 default:
