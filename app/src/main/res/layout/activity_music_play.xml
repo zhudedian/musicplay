@@ -127,7 +127,7 @@
         android:textColor="#b7b7b7"/>
     <com.ider.musicplay.lrc.WordView
         android:id="@+id/lrc_text"
-        android:layout_width="200dp"
+        android:layout_width="300dp"
         android:layout_height="300dp"
         android:layout_centerInParent="true"/>
 

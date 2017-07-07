@@ -19,7 +19,6 @@ import java.util.List;
 
 public class WordView extends TextView {
     private List<String> mWordsList = new ArrayList();
-    private String text;
     private Paint mLoseFocusPaint;
     private Paint mOnFocusePaint;
     private float mX = 0;
@@ -54,7 +53,7 @@ public class WordView extends TextView {
         p.setTextAlign(Paint.Align.CENTER);
         Paint p2 = mOnFocusePaint;
         p2.setTextAlign(Paint.Align.CENTER);
-        if(mWordsList.size()!=0){
+        if(mWordsList.size()>mIndex){
             canvas.drawText(mWordsList.get(mIndex), mX, mMiddleY, p2);
         }
 
@@ -125,7 +124,8 @@ public class WordView extends TextView {
     }
     public void setText(String word){
         mWordsList.clear();
-        text = word;
+        mWordsList.add(word);
+        mIndex =0;
         invalidate();
     }
     public void reNew(int mIndex){

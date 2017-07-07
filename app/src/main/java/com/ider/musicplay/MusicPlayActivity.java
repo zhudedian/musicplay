@@ -331,7 +331,7 @@ public class MusicPlayActivity extends BaseActivity implements View.OnClickListe
                             playTime.setText(Utility.formatTime(position));
                             if (mTimeList!=null){
                                 for (int i = 0 ;i<mTimeList.size();i++){
-                                    if (position>mTimeList.get(i)&&position<mTimeList.get(i+1)){
+                                    if (position>mTimeList.get(i)&&(i<mTimeList.size()-1)&&position<mTimeList.get(i+1)||position>mTimeList.get(mTimeList.size()-1)){
                                         mWordView.reNew(i);
                                     }
                                 }
